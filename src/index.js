@@ -16,63 +16,19 @@ function Square(props) {
 }
 
 class Board extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      squares: Array(9).fill(null),
-      xIsNext: true,
-      history: [Array(9).fill(null)],
-      head: 0
-    };
-  }
-  handleUndo() {
-    this.setState({
-      squares: this.state.history[this.state.head - 1],
-      head: this.state.head - 1
-    });
-  }
-  handleClick(i) {
-    //9つのマス丸ごとアップデート
-    const squares = this.state.squares.slice(); //コピーしてる
-    if (calculateWinner(squares) || squares[i]) {
-      return;
-    }
-    //コピーのメリットは
-    //①元のデータをそのままにできるのでundo, redoを実装できる
-    //②変化を捉えやすい
-    //③再描画しやすい
-    //undoのやり方
-    //squareのstateをセットする
-    let history = this.state.history
-    history.push(squares)
-    //undoされたら一個後ろのstateをセットする
-    squares[i] = this.state.xIsNext ? 'X' : 'O';
-    this.setState({
-      squares: squares,
-      xIsNext: !this.state.xIsNext,
-      history: history, head: this.state.head + 1
-    });
-  }
+
 
   renderSquare(i) {
     return <Square
-      value={this.state.squares[i]}
-      onClick={() => this.handleClick(i)}
+      value={this.props.squares[i]}
+      onClick={() => this.props.onClick(i)}
     />;
   }
 
   render() {
-    const winner = calculateWinner(this.state.squares);
-    let status;
-    if (winner) {
-      status = 'Winner:' + winner;
-    } else {
-      status = 'Next player: ' + (this.state.xIsNext ? 'X' : 'O');
-    }
 
     return (
       <div>
-        <div className="status">{status}</div>
         <div className="board-row">
           {this.renderSquare(0)}
           {this.renderSquare(1)}
@@ -88,36 +44,91 @@ class Board extends React.Component {
           {this.renderSquare(7)}
           {this.renderSquare(8)}
         </div>
-        <button onClick={() => this.handleUndo()}>undo</button>
       </div>
-
     );
   }
 }
 
 class Game extends React.Component {
   constructor(props) {
-    super(props)
+    super(props);
     this.state = {
+      history: [{
+        squares: Array(9).fill(null),
+      }],
+      stepNumber: 0,
+      xIsNext: true,
+    };
+  }
 
+
+  handleClick(i) {
+    //historyは常に現在地までを保存。sliceは(0, 5)の時0~4の要素をとる
+    const history = this.state.history.slice(0, this.state.stepNumber + 1);
+    const current = history[history.length - 1];
+    //9つのマス丸ごとアップデート
+    const squares = current.squares.slice(); //コピーしてる
+    if (calculateWinner(squares) || squares[i]) {
+      return;
     }
+    //コピーのメリットは
+    //①元のデータをそのままにできるのでundo, redoを実装できる
+    //②変化を捉えやすい
+    //③再描画しやすい
+    squares[i] = this.state.xIsNext ? 'X' : 'O';
+    this.setState({
+      history: history.concat([{
+        squares: squares,
+      }]),
+      stepNumber: history.length,
+      xIsNext: !this.state.xIsNext,
+    });
   }
 
-  handleUndo() {
-    this.setState({ history: this.history[this.state.head - 1] })
+  jumpTo(step) {
+    this.setState({
+      stepNumber: step,
+      xIsNext: (step % 2) === 0,
+    })
   }
-
 
   render() {
+    const history = this.state.history;
+    const current = history[this.state.stepNumber];
+    const winner = calculateWinner(current.squares);
+
+    const moves = history.map((step, move) => {
+      //moveがindexなんだけど、0はfalse扱いらしい
+      const desc = move ?
+        'Go to move #' + move :
+        'Go to game start';
+      return (
+        <li key={move}>
+          <button onClick={() => this.jumpTo(move)}>
+            {desc}
+          </button>
+        </li>
+      );
+    });
+
+    let status;
+    if (winner) {
+      status = "Winner" + winner;
+    } else {
+      status = "Next player: " + (this.state.xIsNext ? 'X' : 'O');
+    }
+
     return (
       <div className="game">
         <div className="game-board">
-          <Board />
+          <Board
+            squares={current.squares}
+            onClick={(i) => this.handleClick(i)}
+          />
         </div>
         <div className="game-info">
-
-          <div>{/* status */}</div>
-          <ol>{/* TODO */}</ol>
+          <div>{status}</div>
+          <ol>{moves}</ol>
         </div>
       </div>
     );
